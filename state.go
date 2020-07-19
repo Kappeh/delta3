@@ -1,9 +1,5 @@
 package main
 
-import (
-	"errors"
-)
-
 const (
 	MoveBufferSize = 60
 	MovePass       = -1
@@ -24,7 +20,7 @@ type State struct {
 	// Hash values (including symmetry)
 }
 
-func NewState(discsBlack, discsWhite Bitboard, player int) (State, error) {
+func NewState(discsBlack, discsWhite Bitboard, player int) State {
 	s := State{
 		DiscsBlack:     discsBlack,
 		DiscsWhite:     discsWhite,
@@ -34,16 +30,13 @@ func NewState(discsBlack, discsWhite Bitboard, player int) (State, error) {
 		moveBuffer: [MoveBufferSize]int{},
 	}
 
-	switch player {
-	case Black:
+	if player == Black {
 		s.captureTable = NewCaptureTable(discsBlack, discsWhite)
-	case White:
+	} else {
 		s.captureTable = NewCaptureTable(discsWhite, discsBlack)
-	default:
-		return s, errors.New("invalid player")
 	}
-
-	return s, nil
+	
+	return s
 }
 
 func (s State) Moves() []int {
