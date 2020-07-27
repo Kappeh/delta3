@@ -148,7 +148,7 @@ func (p *perft) depthFirstSearch(state State, depth int) {
 		return
 	}
 
-	if moves[0] == MovePass {
+	if moves[0].ID == MoveIDPass {
 		p.passes++
 	}
 

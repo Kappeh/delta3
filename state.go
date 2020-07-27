@@ -2,7 +2,7 @@ package main
 
 const (
 	MoveBufferSize = 60
-	MovePass       = -1
+	MoveIDPass     = -1
 
 	Black = iota
 	White
@@ -14,7 +14,7 @@ type State struct {
 	Player         int
 	OpponentPassed bool
 
-	moveBuffer   [MoveBufferSize]int
+	moveBuffer   [MoveBufferSize]Move
 	captureTable CaptureTable
 
 	// Hash values (including symmetry)
@@ -27,7 +27,7 @@ func NewState(discsBlack, discsWhite Bitboard, player int) State {
 		Player:         player,
 		OpponentPassed: false,
 
-		moveBuffer: [MoveBufferSize]int{},
+		moveBuffer: [MoveBufferSize]Move{},
 	}
 
 	if player == Black {
@@ -39,30 +39,30 @@ func NewState(discsBlack, discsWhite Bitboard, player int) State {
 	return s
 }
 
-func (s State) Moves() []int {
+func (s State) Moves() MoveList {
 	moves := s.captureTable.Moves()
 	
 	if moves == 0 {
 		if s.OpponentPassed {
 			return s.moveBuffer[:0]
 		}
-		s.moveBuffer[0] = MovePass
+		s.moveBuffer[0].ID = MoveIDPass
 		return s.moveBuffer[:1]
 	}
 
 	var i int
 	for ; i < MoveBufferSize && moves != 0; i++ {
-		s.moveBuffer[i], moves = moves.Pop()
+		s.moveBuffer[i].ID, moves = moves.Pop()
 	}
 
 	return s.moveBuffer[:i]
 }
 
-func (s State) MakeMove(move int) State {
+func (s State) MakeMove(move Move) State {
 	var disc, captures Bitboard
 	
-	if move != MovePass {
-		disc     = Bitboard(1 << move)
+	if move.ID != MoveIDPass {
+		disc     = Bitboard(1 << move.ID)
 		captures = s.captureTable.Captures(disc)
 	} else {
 		s.OpponentPassed = true
