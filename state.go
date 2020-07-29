@@ -1,5 +1,7 @@
 package main
 
+import "math/bits"
+
 const (
 	MoveBufferSize = 60
 	MoveIDPass     = -1
@@ -84,7 +86,66 @@ func (s State) MakeMove(move Move) State {
 }
 
 func (s State) Evaluate() int {
-	return 0
+	// Very crude evaluation function for now
+	
+	const (
+		discCountScoreWeight    = 1
+		mobilityScoreWeight     = 50
+		discPositionScoreWeight = 10
+	)
+	
+	var (
+		discPositionScoreTable  = [64]int{
+			100, -30, 6, 2, 2, 6, -30, 100,
+			-30, -50, 0, 0, 0, 0, -50, -30,
+			  6,   0, 0, 0, 0, 0,   0,   6,
+			  2,   0, 0, 0, 0, 0,   0,   2,
+			  2,   0, 0, 0, 0, 0,   0,   2,
+			  6,   0, 0, 0, 0, 0,   0,   6,
+			-30, -50, 0, 0, 0, 0, -50, -30,
+			100, -30, 6, 2, 2, 6, -30, 100,
+		}
+
+		discCountScore       int
+		mobilityScore        int
+		discPositionScore    int
+		opponentCaptureTable CaptureTable
+	)
+	
+	discsBlack     := s.DiscsBlack
+	discsWhite     := s.DiscsWhite
+	discCountBlack := bits.OnesCount64(uint64(s.DiscsBlack))
+	discCountWhite := bits.OnesCount64(uint64(s.DiscsWhite))
+
+	var discPosition int
+	for discsBlack != 0 {
+		discPosition, discsBlack = discsBlack.Pop()
+		discPositionScore       += discPositionScoreTable[discPosition]
+	}
+	for discsWhite != 0 {
+		discPosition, discsWhite = discsWhite.Pop()
+		discPositionScore       -= discPositionScoreTable[discPosition]
+	}
+
+	if s.Player == Black {
+		discCountScore       = discCountBlack - discCountWhite
+		opponentCaptureTable = NewCaptureTable(s.DiscsWhite, s.DiscsBlack)
+	} else {
+		discCountScore       = discCountWhite - discCountBlack
+		opponentCaptureTable = NewCaptureTable(s.DiscsBlack, s.DiscsWhite)
+
+		discPositionScore = -discPositionScore
+	}
+
+	movesPlayer       := s.captureTable.Moves()
+	movesOpponent     := opponentCaptureTable.Moves()
+	moveCountPlayer   := bits.OnesCount64(uint64(movesPlayer))
+	moveCountOpponent := bits.OnesCount64(uint64(movesOpponent))
+	mobilityScore      = moveCountPlayer - moveCountOpponent
+
+	return discCountScore    * discCountScoreWeight +
+		   mobilityScore     * mobilityScoreWeight  +
+		   discPositionScore * discPositionScoreWeight
 }
 
 func (s State) String() string {
