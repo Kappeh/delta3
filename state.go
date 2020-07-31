@@ -1,6 +1,8 @@
 package main
 
-import "math/bits"
+import (
+	"math/bits"
+)
 
 const (
 	MoveBufferSize = 60
@@ -18,8 +20,7 @@ type State struct {
 
 	moveBuffer   [MoveBufferSize]Move
 	captureTable CaptureTable
-
-	// Hash values (including symmetry)
+	hashes       SymetryHashList
 }
 
 func NewState(discsBlack, discsWhite Bitboard, player int) State {
@@ -30,7 +31,11 @@ func NewState(discsBlack, discsWhite Bitboard, player int) State {
 		OpponentPassed: false,
 
 		moveBuffer: [MoveBufferSize]Move{},
+		hashes:     NewSymetryHashList(),
 	}
+
+	s.hashes = s.hashes.ApplyBitboardBlack(discsBlack)
+	s.hashes = s.hashes.ApplyBitboardWhite(discsWhite)
 
 	if player == Black {
 		s.captureTable = NewCaptureTable(discsBlack, discsWhite)
@@ -75,11 +80,17 @@ func (s State) MakeMove(move Move) State {
 		s.DiscsWhite  &= ^captures
 		s.Player       =  White
 		s.captureTable =  NewCaptureTable(s.DiscsWhite, s.DiscsBlack)
+
+		s.hashes = s.hashes.ApplyBitboardBlack(captures | disc)
+		s.hashes = s.hashes.ApplyBitboardWhite(captures)
 	} else {
 		s.DiscsBlack  &= ^captures
 		s.DiscsWhite  |=  captures | disc
 		s.Player       =  Black
 		s.captureTable =  NewCaptureTable(s.DiscsBlack, s.DiscsWhite)
+
+		s.hashes = s.hashes.ApplyBitboardBlack(captures)
+		s.hashes = s.hashes.ApplyBitboardWhite(captures | disc)
 	}
 
 	return s
