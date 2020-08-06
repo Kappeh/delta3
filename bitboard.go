@@ -32,7 +32,7 @@ func (b Bitboard) ShiftNE() Bitboard {
 }
 
 func (b Bitboard) ShiftSE() Bitboard {
-	return (b & 0x007F7F7F7F7F7F7F) >> 9
+	return (b & 0x007F7F7F7F7F7F7F) << 9
 }
 
 func (b Bitboard) ShiftSW() Bitboard {
@@ -40,5 +40,5 @@ func (b Bitboard) ShiftSW() Bitboard {
 }
 
 func (b Bitboard) ShiftNW() Bitboard {
-	return (b & 0xFEFEFEFEFEFEFE00) << 9
+	return (b & 0xFEFEFEFEFEFEFE00) >> 9
 }
