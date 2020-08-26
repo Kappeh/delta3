@@ -19,9 +19,21 @@ func NewTranspositionTable() *TranspositionTable {
 	}
 }
 
-func (tt *TranspositionTable) Update(h ZobristHash, i TranspositionInfo) {
+func (tt *TranspositionTable) Clear() {
+	tt.lock.Lock()
+	tt.table = make(map[ZobristHash]TranspositionInfo)
+	tt.lock.Unlock()
+}
+
+func (tt *TranspositionTable) Set(h ZobristHash, i TranspositionInfo) {
 	tt.lock.Lock()
 	tt.table[h] = i
+	tt.lock.Unlock()
+}
+
+func (tt *TranspositionTable) Remove(h ZobristHash) {
+	tt.lock.Lock()
+	delete(tt.table, h)
 	tt.lock.Unlock()
 }
 
