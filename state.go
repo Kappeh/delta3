@@ -98,6 +98,12 @@ func (s State) MakeMove(move Move) State {
 
 func (s State) Evaluate() int {
 	// Very crude evaluation function for now
+	// Features
+	// - DiscCount                  simple implimentation
+	// - Mobility                   simple implimentation
+	// - DiscPositionScore(static)  simple implimentation
+	// - DiscPositionScore(dynamic) not implimented
+	// - InteriorDiscCount          not implimented
 	
 	const (
 		discCountScoreWeight    = 1
