@@ -1,10 +1,31 @@
 package main
 
-type Searcher struct {}
+type Searcher struct {
+	// Transposition Table
+	// Killer Heuristic
+	// History Heuristic
+	// PV Table
+}
 
 func (s *Searcher) search2(depth int, node State) Boundary {
 	const Win = 100000000
-	return s.PVSearch(BoundaryLower(-Win), BoundaryUpper(Win), depth, node)
+	return s.pvSearch(BoundaryLower(-Win), BoundaryUpper(Win), depth, node)
+}
+
+func (s *Searcher) clearTables() {
+
+}
+
+func (s *Searcher) setRootNode(state State) {
+
+}
+
+func (s *Searcher) search(depth int) {
+
+}
+
+func (s *Searcher) rootSearch() Boundary {
+	return 0
 }
 
 // Alpha is lower bound
@@ -12,7 +33,7 @@ func (s *Searcher) search2(depth int, node State) Boundary {
 // PVSearch returns an exact or lower bound for this nodes best score
 // TODO: Move ordering
 
-func (s *Searcher) PVSearch(alpha, beta Boundary, depth int, state State) Boundary {
+func (s *Searcher) pvSearch(alpha, beta Boundary, depth int, state State) Boundary {
 	// Get possible actions
 	moves := state.Moves()
 	// If there are no actions,
@@ -31,7 +52,7 @@ func (s *Searcher) PVSearch(alpha, beta Boundary, depth int, state State) Bounda
 	move     := moves.GetMove(0)
 	newState := state.MakeMove(move)
 	// Full search
-	bestScore := -s.PVSearch(-beta, -alpha, depth-1, newState)
+	bestScore := -s.pvSearch(-beta, -alpha, depth-1, newState)
 
 	// If the move is greater than beta,
 	//     return the score as a lower bound
@@ -52,7 +73,7 @@ func (s *Searcher) PVSearch(alpha, beta Boundary, depth int, state State) Bounda
 		// If the value is within alpha and beta,
 		//     re-search
 		if score > alpha && score < beta {
-			score      = -s.PVSearch(-beta, -alpha, depth-1, newState)
+			score      = -s.pvSearch(-beta, -alpha, depth-1, newState)
 			exactScore = exactScore && score.IsExact()
 		}
 
