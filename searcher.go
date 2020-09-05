@@ -1,63 +1,55 @@
 package main
 
+const MaxDepth = 100
+
 type Searcher struct {
-	// Transposition Table
-	// Killer Heuristic
-	// History Heuristic
-	// PV Table
+	RootNode State
+
+	TranspositionTable *TranspositionTable
+	Killers             [MaxDepth * 2]Move
+	History             [MaxDepth][64 + 1]int
+	PVTable             PVTable
 }
 
-func (s *Searcher) search2(depth int, node State) Boundary {
-	const Win = 100000000
-	return s.pvSearch(BoundaryLower(-Win), BoundaryUpper(Win), depth, node)
-}
-
-func (s *Searcher) clearTables() {
-
-}
-
-func (s *Searcher) setRootNode(state State) {
-
-}
-
-func (s *Searcher) search(depth int) {
-
-}
-
-func (s *Searcher) rootSearch() Boundary {
-	return 0
+type NodeInfo struct {
+	// Score is an alpha value when a  lower bound
+	// Score is a  beta  value when an upper bound
+	SearchDepth int
+	PVMove      Move
 }
 
 // Alpha is lower bound
 // Beta  is upper bound
 // PVSearch returns an exact or lower bound for this nodes best score
 // TODO: Move ordering
-
-func (s *Searcher) pvSearch(alpha, beta Boundary, depth int, state State) Boundary {
+func (s *Searcher) pvSearch(alpha, beta Boundary, depth int, state State) (Boundary, bool) {
+	// Probe hash table
+	
 	// Get possible actions
 	moves := state.Moves()
 	// If there are no actions,
 	//     this is a terminal node, the game is over
 	//     return the utility of the node (Exact Value)
 	if len(moves) == 0 {
-		return BoundaryExact(state.Evaluate())
+		return BoundaryExact(state.Evaluate()), true
 	}
 	// If depth is 0,
 	//     return the evaluation of this node (Lower Bound)
 	if depth == 0 {
-		return BoundaryLower(state.Evaluate())
+		return BoundaryLower(state.Evaluate()), true
 	}
 
 	// First move
 	move     := moves.GetMove(0)
 	newState := state.MakeMove(move)
 	// Full search
-	bestScore := -s.pvSearch(-beta, -alpha, depth-1, newState)
+	bestScore, _ := s.pvSearch(-beta, -alpha, depth-1, newState)
+	bestScore     = -bestScore
 
 	// If the move is greater than beta,
 	//     return the score as a lower bound
 	if bestScore > beta {
-		return bestScore.ForceLower()
+		return bestScore.ForceLower(), true
 	}
 
 	// exactScore tracks if all the results
@@ -66,14 +58,16 @@ func (s *Searcher) pvSearch(alpha, beta Boundary, depth int, state State) Bounda
 	exactScore := bestScore.IsExact()
 
 	for i := 1; i < len(moves); i++ {
-		move     = moves.GetMove(i)
-		newState = state.MakeMove(move)
-		score   := -s.zwSearch(-alpha, depth-1, newState)
+		move      = moves.GetMove(i)
+		newState  = state.MakeMove(move)
+		score, _ := s.zwSearch(-alpha, depth-1, newState)
+		score     = -score
 
 		// If the value is within alpha and beta,
 		//     re-search
 		if score > alpha && score < beta {
-			score      = -s.pvSearch(-beta, -alpha, depth-1, newState)
+			score, _   = s.pvSearch(-beta, -alpha, depth-1, newState)
+			score      = -score
 			exactScore = exactScore && score.IsExact()
 		}
 
@@ -106,29 +100,30 @@ func (s *Searcher) pvSearch(alpha, beta Boundary, depth int, state State) Bounda
 	//     (Not technically true but it will get removes while
 	//     backtracking up the tree)
 	if exactScore {
-		return bestScore.ForceExact()
+		return bestScore.ForceExact(), false
 	}
 	// Otherwise, return a lower bound
-	return bestScore.ForceLower()
+	return bestScore.ForceLower(), false
 }
 
-func (s *Searcher) zwSearch(beta Boundary, depth int, state State) Boundary {
+func (s *Searcher) zwSearch(beta Boundary, depth int, state State) (Boundary, bool) {
 	// alpha := beta - 1
 	moves := state.Moves()
 	if len(moves) == 0 {
-		return BoundaryExact(state.Evaluate())
+		return BoundaryExact(state.Evaluate()), true
 	}
 	if depth == 0 {
-		return BoundaryLower(state.Evaluate())
+		return BoundaryLower(state.Evaluate()), true
 	}
 	for _, move := range moves {
 		newState := state.MakeMove(move)
-		score    := -s.zwSearch(1 - beta, depth - 1, newState)
+		score, _ := s.zwSearch(1 - beta, depth - 1, newState)
+		score     = -score
 		if score >= beta {
 			// fail-hard beta cut-off
-			return beta
+			return beta, true
 		}
 	}
 	// fail-hard return alpha
-	return beta - 1
+	return beta - 1, true
 }
