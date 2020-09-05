@@ -1,21 +1,138 @@
 package main
 
+import (
+	"errors"
+	"time"
+)
+
 const MaxDepth = 100
-
-type Searcher struct {
-	RootNode State
-
-	TranspositionTable *TranspositionTable
-	Killers             [MaxDepth * 2]Move
-	History             [MaxDepth][64 + 1]int
-	PVTable             PVTable
-}
 
 type NodeInfo struct {
 	// Score is an alpha value when a  lower bound
 	// Score is a  beta  value when an upper bound
 	SearchDepth int
 	PVMove      Move
+	Score       Boundary
+}
+
+type SearchOptions struct {
+	TimeoutEnabled  bool
+	Timeout         time.Duration
+	MaxDepthEnabled bool
+	MaxDepth        int
+}
+
+type Searcher struct {
+	RootNode      State
+	SearchOptions SearchOptions
+
+	// A Move with an ID of MoveIDPass can
+	// be ignored as a pass is an only move
+	// so there is no speed up I will therefore
+	// be using it as a default / cleared value
+	Killers             [MaxDepth * 2]Move
+	History             [MaxDepth][64 + 1]int
+	PVTable             PVTable
+	TranspositionTable *TranspositionTable
+	RootInfo            NodeInfo
+
+	active bool
+}
+
+func (s *Searcher) clearAll() {
+	s.clearKillers()
+	s.clearHistory()
+	s.PVTable = NewPVTable(0)
+	s.TranspositionTable.Clear()
+	s.RootInfo = NodeInfo{SearchDepth: -1}
+}
+
+func (s *Searcher) clearKillers() {
+	for i := 0; i < MaxDepth * 2; i++ {
+		s.Killers[i] = Move{ID: MoveIDPass}
+	}
+}
+
+func (s *Searcher) clearHistory() {
+	for i := 0; i < MaxDepth; i++ {
+		for j := 0; j < 64 + 1; j++ {
+			s.History[i][j] = 0
+		}
+	}
+}
+
+func (s *Searcher) SetState(state State) error {
+	if s.active {
+		return errors.New("could not set state: searcher active")
+	}
+	s.RootNode = state
+	// It should be possible to use this information
+	// when switching between states of the same game
+	// I'll be just clearing it out for now
+	s.clearKillers()
+	s.clearHistory()
+	s.RootInfo = NodeInfo{SearchDepth: -1}
+	return nil
+}
+
+func (s *Searcher) idSearch() {
+	timeout  := time.Now().Add(s.SearchOptions.Timeout)
+	maxDepth := MaxDepth
+	if s.SearchOptions.MaxDepthEnabled && s.SearchOptions.MaxDepth < MaxDepth {
+		maxDepth = s.SearchOptions.MaxDepth
+	}
+
+	for s.RootInfo.SearchDepth < maxDepth {
+		nextDepth := s.RootInfo.SearchDepth + 1
+
+		// If we're out of time
+		if s.SearchOptions.TimeoutEnabled && time.Now().After(timeout) ||
+		// or we've searched to the max depth
+		   s.RootInfo.SearchDepth == s.SearchOptions.MaxDepth {
+
+			break
+		}
+
+		const Win  = 10000
+		alpha     := BoundaryLower(-Win)
+		beta      := BoundaryUpper(Win)
+		move, score, ok := s.SearchRootNode(alpha, beta, nextDepth)
+		if !ok {
+			break
+		}
+
+		s.RootInfo = NodeInfo{
+			SearchDepth: nextDepth,
+			PVMove:      move,
+			Score:       score,
+		}
+	}
+}
+
+func (s *Searcher) SearchRootNode(alpha, beta Boundary, depth int) (Move, Boundary, bool) {
+	s.PVTable  = NewPVTable(depth)
+	bestMove  := Move{ID: MoveIDPass}
+	bestScore := alpha
+	moves     := s.RootNode.Moves()
+
+	if depth == 0 {
+		return moves[0], BoundaryLower(s.RootNode.Evaluate()), true
+	}
+
+	for _, move   := range moves {
+		newState  := s.RootNode.MakeMove(move)
+		score, ok := s.pvSearch(-beta, -alpha, depth - 1, newState)
+		score     = -score
+		if !ok {
+			return Move{}, Boundary(0), false
+		}
+		if score > bestScore {
+			bestMove  = move
+			bestScore = score
+		}
+	}
+
+	return bestMove, bestScore, true
 }
 
 // Alpha is lower bound
